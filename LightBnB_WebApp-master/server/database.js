@@ -23,7 +23,9 @@ const getUserWithEmail = function(email) {
   return pool
     .query(`SELECT * FROM users WHERE email = $1;`, [email])
     .then(response => {
-      console.log(response.rows);
+      //return null if user does not exist
+      if (!response.rows[0]) return null;
+
       return response.rows[0];
     })
     .catch(err => {
@@ -41,6 +43,9 @@ const getUserWithId = function(id) {
   return pool
     .query(`SELECT * FROM users where id = $1`, [id])
     .then(response => {
+      //return null if user does not exist
+      if (!response.rows[0]) return null;
+
       return response.rows[0];
     })
     .catch(err => {
@@ -56,10 +61,18 @@ exports.getUserWithId = getUserWithId;
  * @return {Promise<{}>} A promise to the user.
  */
 const addUser = function(user) {
-  const userId = Object.keys(users).length + 1;
-  user.id = userId;
-  users[userId] = user;
-  return Promise.resolve(user);
+  return pool
+    .query(`
+      INSERT INTO users (name, password, email)
+      VALUES ($1, $2, $3)
+      RETURNING *;`, [user.name, user.password, user.email]
+    )
+    .then(response => {
+      return response.rows[0];
+    })
+    .catch(err => {
+      console.lof(err.message);
+    });
 };
 exports.addUser = addUser;
 
