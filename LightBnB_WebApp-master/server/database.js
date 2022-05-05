@@ -113,14 +113,47 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  return pool
-    .query(`SELECT * FROM properties LIMIT $1;`, [limit])
-    .then(response => {
-      return response.rows;
-    })
-    .catch((err) => {
-      console.log(err.message);
-    });
+  // return pool
+  //   .query(`SELECT * FROM properties LIMIT $1;`, [limit])
+  //   .then(response => {
+  //     return response.rows;
+  //   })
+  //   .catch((err) => {
+  //     console.log(err.message);
+  //   });
+
+  //----------------------------------------------------
+  //1 set up array to hold potential parameters
+  const queryParams = [];
+
+  //2 start building query string before WHERE clause
+  let queryString = `
+  SELECT properties.*, avg(property_reviews.rating) as average_rating
+  FROM properties
+  JOIN property_reviews ON properties.id = property_id
+  `;
+
+  //3 Check if city was pass as an option
+  //user length of array to dynamically access $n
+  //make sure '%' is part of the paramter, not the string
+  if (options.city) {
+    queryParams.push(`%${options.city}%`);
+    queryString += `WHERE city LIKE $${queryParams.length} `; //queryParams.length --> $1
+  }
+
+  //4 add 'limit parameter to query string
+  queryParams.push(limit);
+  queryString += `
+  GROUP BY properties.id
+  ORDER BY cost_per_night
+  LIMIT $${queryParams.length};
+  `; //queryParams.length --> $2
+
+  //5 check constructed string
+  console.log(queryString, queryParams);
+
+  //6 return promise
+  return pool.query(queryString, queryParams).then(response => { return response.rows; });
 };
 exports.getAllProperties = getAllProperties;
 
