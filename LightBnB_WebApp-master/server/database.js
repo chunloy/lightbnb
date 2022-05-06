@@ -7,11 +7,6 @@ const pool = new Pool({
   database: 'lightbnb'
 });
 
-//pool.query(`SELECT title FROM properties LIMIT 10;`).then(response => { console.log(response); });
-
-const properties = require('./json/properties.json');
-const users = require('./json/users.json');
-
 /// Users
 
 /**
@@ -113,18 +108,10 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
-  // return pool
-  //   .query(`SELECT * FROM properties LIMIT $1;`, [limit])
-  //   .then(response => {
-  //     return response.rows;
-  //   })
-  //   .catch((err) => {
-  //     console.log(err.message);
-  //   });
-
-  //-----------------------CITY-----------------------------
   //1 set up array to hold potential parameters
   const queryParams = [];
+  let prefix1 = 'WHERE';
+  const prefix2 = '\n  ';
 
   //2 start building query string before WHERE clause
   let queryString = `
@@ -138,41 +125,33 @@ const getAllProperties = function(options, limit = 10) {
   //make sure '%' is part of the paramter, not the string
   if (options.city) {
     queryParams.push(`%${options.city}%`);
-    queryString += `WHERE city LIKE $${queryParams.length} `; //queryParams.length --> $1
+    queryString += `${prefix1} city LIKE $${queryParams.length} `;
+    prefix1 = 'AND';
   }
 
   if (options.owner_id) {
     queryParams.push(`${options.owner_id}`);
-    if (queryParams.length === 1) {
-      queryString += `WHERE owner_id = $${queryParams.length} `; //queryParams.length --> $2
-    } else {
-      queryString += `AND owner_id = $${queryParams.length} `; //queryParams.length --> $2
-    }
+    queryString += `${prefix1} owner_id = $${queryParams.length} `;
+    prefix1 = 'AND';
   }
 
   if (options.minimum_price_per_night) {
     queryParams.push(options.minimum_price_per_night * 100);
-    if (queryParams.length === 1) {
-      queryString += `WHERE cost_per_night >= $${queryParams.length} `; //queryParams.length --> $3
-    } else {
-      queryString += `AND cost_per_night >= $${queryParams.length} `; //queryParams.length --> $3
-    }
+    queryString += `${prefix1} cost_per_night >= $${queryParams.length} `;
+    prefix1 = 'AND';
   }
 
   if (options.maximum_price_per_night) {
     queryParams.push(options.maximum_price_per_night * 100);
-    if (queryParams.length === 1) {
-      queryString += `WHERE cost_per_night <= $${queryParams.length} `; //queryParams.length --> $4
-    } else {
-      queryString += `AND cost_per_night <= $${queryParams.length} `; //queryParams.length --> $4
-    }
+    queryString += `${prefix1} cost_per_night <= $${queryParams.length} `;
+    prefix1 = 'AND';
   }
 
-  queryString += `\n  GROUP BY properties.id `;
+  queryString += `${prefix2}GROUP BY properties.id `;
 
   if (options.minimum_rating) {
     queryParams.push(`${options.minimum_rating}`);
-    queryString += `HAVING avg(property_reviews.rating) >= $${queryParams.length}`; //queryParams.length --> $5
+    queryString += `HAVING avg(property_reviews.rating) >= $${queryParams.length}`;
   }
 
   //4 add 'limit parameter to query string
@@ -180,16 +159,15 @@ const getAllProperties = function(options, limit = 10) {
   queryString += `
   ORDER BY cost_per_night
   LIMIT $${queryParams.length};
-  `; //queryParams.length --> $2
+  `;
 
-  //5 check constructed string
-  console.log(queryString, queryParams);
-
-  //6 return promise
-  return pool.query(queryString, queryParams).then(response => { return response.rows; });
+  //5 return promise
+  return pool.query(queryString, queryParams)
+    .then(response => {
+      return response.rows;
+    });
 };
 exports.getAllProperties = getAllProperties;
-
 
 /**
  * Add a property to the database
@@ -197,11 +175,6 @@ exports.getAllProperties = getAllProperties;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  // const propertyId = Object.keys(properties).length + 1;
-  // property.id = propertyId;
-  // properties[propertyId] = property;
-  // return Promise.resolve(property);
-
   return pool
     .query(`
       INSERT INTO properties (
@@ -239,7 +212,6 @@ const addProperty = function(property) {
         property.number_of_bedrooms
       ])
     .then(response => {
-      console.log(response.rows[0]);
       return response.rows[0];
     })
     .catch(err => {
